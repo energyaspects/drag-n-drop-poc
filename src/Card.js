@@ -1,7 +1,7 @@
 import React from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 
-const Card = ({ id, text, index, moveCard }) => {
+const Card = ({ id, text, index, moveCard, onDragStart, onDragEnd }) => {
   const ref = React.useRef(null);
 
   const [, drop] = useDrop({
@@ -41,6 +41,14 @@ const Card = ({ id, text, index, moveCard }) => {
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
+    options: {
+      begin: () => {
+        onDragStart();
+      },
+      end: () => {
+        onDragEnd();
+      },
+    },
   });
 
   drag(drop(ref));
