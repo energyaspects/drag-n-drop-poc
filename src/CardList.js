@@ -1,11 +1,23 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { TouchBackend } from 'react-dnd-touch-backend';
-import { MultiBackend, TouchTransition } from 'dnd-multi-backend';
-import update from 'immutability-helper';
-import Card from './Card';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  TouchSensor,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 
+// Function to generate a dynamic number of cards
 const generateCards = (numCards) => {
   return Array.from({ length: numCards }, (_, index) => ({
     id: index + 1,
@@ -13,62 +25,99 @@ const generateCards = (numCards) => {
   }));
 };
 
+const Card = ({ id, text }) => {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    padding: '16px',
+    margin: '4px 0',
+    backgroundColor: 'white',
+    border: '1px solid #ccc',
+    borderRadius: '4px',
+    cursor: 'grab',
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {text}
+    </div>
+  );
+};
+
 const CardList = ({ numCards = 10 }) => {
   const [cards, setCards] = useState(generateCards(numCards));
-
   const containerRef = useRef(null);
-  const scrollIntervalRef = useRef(null);
+  const scrollAnimationFrameRef = useRef(null);
   const isDraggingRef = useRef(false);
+  const lastClientYRef = useRef(null);
 
-  const moveCard = useCallback((dragIndex, hoverIndex) => {
-    const dragCard = cards[dragIndex];
-    setCards(
-      update(cards, {
-        $splice: [
-          [dragIndex, 1],
-          [hoverIndex, 0, dragCard],
-        ],
-      })
-    );
-  }, [cards]);
-
-  const handleScroll = (e) => {
-    if (!isDraggingRef.current) return;
-
-    const container = containerRef.current;
-    if (!container) return;
-
-    const scrollThreshold = 20;
-    const scrollSpeed = 10;
-
-    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-
-    if (clientY - container.getBoundingClientRect().top < scrollThreshold) {
-      clearInterval(scrollIntervalRef.current);
-      scrollIntervalRef.current = setInterval(() => {
-        container.scrollTop = container.scrollTop - scrollSpeed;
-      }, 100);
-    } else if (container.getBoundingClientRect().bottom - clientY < scrollThreshold) {
-      clearInterval(scrollIntervalRef.current);
-      scrollIntervalRef.current = setInterval(() => {
-        container.scrollTop = container.scrollTop + scrollSpeed;
-      }, 100);
-    } else {
-      clearInterval(scrollIntervalRef.current);
-    }
-  };
-
-  const clearScrollInterval = () => {
-    clearInterval(scrollIntervalRef.current);
-  };
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        distance: 10,
+      },
+    })
+  );
 
   const handleDragStart = () => {
     isDraggingRef.current = true;
   };
 
-  const handleDragEnd = () => {
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      setCards((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+
     isDraggingRef.current = false;
-    clearScrollInterval();
+    clearScrollAnimationFrame();
+  };
+
+  const handleScroll = () => {
+    if (!isDraggingRef.current) return;
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const scrollThreshold = 20; // Pixels from the top/bottom to start scrolling
+    const scrollSpeed = 10; // Pixels to scroll per frame
+
+    const clientY = lastClientYRef.current;
+
+    const scroll = () => {
+      if (clientY - container.getBoundingClientRect().top < scrollThreshold) {
+        container.scrollTop = container.scrollTop - scrollSpeed;
+      } else if (container.getBoundingClientRect().bottom - clientY < scrollThreshold) {
+        container.scrollTop = container.scrollTop + scrollSpeed;
+      }
+      scrollAnimationFrameRef.current = requestAnimationFrame(scroll);
+    };
+
+    cancelAnimationFrame(scrollAnimationFrameRef.current);
+    scrollAnimationFrameRef.current = requestAnimationFrame(scroll);
+  };
+
+  const clearScrollAnimationFrame = () => {
+    cancelAnimationFrame(scrollAnimationFrameRef.current);
+  };
+
+  const handleTouchMove = (e) => {
+    lastClientYRef.current = e.touches[0].clientY;
+    handleScroll();
+  };
+
+  const handleMouseMove = (e) => {
+    lastClientYRef.current = e.clientY;
+    handleScroll();
   };
 
   useEffect(() => {
@@ -81,63 +130,51 @@ const CardList = ({ numCards = 10 }) => {
       }
     };
 
-    container.addEventListener('dragover', handleScroll);
-    container.addEventListener('touchmove', handleScroll, { passive: false });
+    container.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchmove', preventDefault, { passive: false });
-    container.addEventListener('dragleave', clearScrollInterval);
-    container.addEventListener('touchend', clearScrollInterval);
-    container.addEventListener('drop', clearScrollInterval);
+    container.addEventListener('mouseleave', clearScrollAnimationFrame);
+    container.addEventListener('touchend', clearScrollAnimationFrame);
+    container.addEventListener('drop', clearScrollAnimationFrame);
 
     return () => {
-      container.removeEventListener('dragover', handleScroll);
-      container.removeEventListener('touchmove', handleScroll);
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchmove', preventDefault);
-      container.removeEventListener('dragleave', clearScrollInterval);
-      container.removeEventListener('touchend', clearScrollInterval);
-      container.removeEventListener('drop', clearScrollInterval);
+      container.removeEventListener('mouseleave', clearScrollAnimationFrame);
+      container.removeEventListener('touchend', clearScrollAnimationFrame);
+      container.removeEventListener('drop', clearScrollAnimationFrame);
     };
   }, []);
 
   return (
-    <DndProvider
-      backend={MultiBackend}
-      options={{
-        backends: [
-          {
-            backend: HTML5Backend,
-          },
-          {
-            backend: TouchBackend,
-            options: { enableMouseEvents: true },
-            preview: true,
-            transition: TouchTransition,
-          },
-        ],
-      }}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      modifiers={[restrictToVerticalAxis]}
     >
       <div
         ref={containerRef}
         style={{
           width: '200px',
           height: '400px',
-          overflowY: 'auto',
+          overflowY: 'scroll',
           margin: '0 auto',
           border: '1px solid black',
+          WebkitOverflowScrolling: 'touch', // Ensures smooth scrolling on iOS
+          scrollbarWidth: 'thin', // For Firefox
         }}
+        className="scroll-container"
       >
-        {cards.map((card, index) => (
-          <Card
-            key={card.id}
-            index={index}
-            id={card.id}
-            text={card.text}
-            moveCard={moveCard}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          />
-        ))}
+        <SortableContext items={cards} strategy={verticalListSortingStrategy}>
+          {cards.map((card) => (
+            <Card key={card.id} id={card.id} text={card.text} />
+          ))}
+        </SortableContext>
       </div>
-    </DndProvider>
+    </DndContext>
   );
 };
 
