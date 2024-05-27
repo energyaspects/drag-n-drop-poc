@@ -10,14 +10,12 @@ import {
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 
-// Function to generate a dynamic number of cards
 const generateCards = (numCards) => {
   return Array.from({ length: numCards }, (_, index) => ({
     id: index + 1,
@@ -87,9 +85,8 @@ const CardList = ({ numCards = 10 }) => {
     const container = containerRef.current;
     if (!container) return;
 
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    const scrollThreshold = 20; // Pixels from the top/bottom to start scrolling
-    const scrollSpeed = 10; // Pixels to scroll per frame
+    const scrollThreshold = 20; 
+    const scrollSpeed = 10; 
 
     const clientY = lastClientYRef.current;
 
