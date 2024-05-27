@@ -6,25 +6,15 @@ import { MultiBackend, TouchTransition } from 'dnd-multi-backend';
 import update from 'immutability-helper';
 import Card from './Card';
 
-const CardList = () => {
-    const [cards, setCards] = useState([
-      { id: 1, text: 'Card 1' },
-      { id: 2, text: 'Card 2' },
-      { id: 3, text: 'Card 3' },
-      { id: 4, text: 'Card 4' },
-      { id: 5, text: 'Card 5' },
-      { id: 6, text: 'Card 6' },
-      { id: 7, text: 'Card 7' },
-      { id: 8, text: 'Card 8' },
-      { id: 9, text: 'Card 9' },
-      { id: 10, text: 'Card 10' },
-      { id: 11, text: 'Card 11' },
-      { id: 12, text: 'Card 12' },
-      { id: 13, text: 'Card 13' },
-      { id: 14, text: 'Card 14' },
-      { id: 15, text: 'Card 15' },
-      { id: 16, text: 'Card 16' },
-    ]);
+const generateCards = (numCards) => {
+  return Array.from({ length: numCards }, (_, index) => ({
+    id: index + 1,
+    text: `Card ${index + 1}`,
+  }));
+};
+
+const CardList = ({ numCards = 10 }) => {
+  const [cards, setCards] = useState(generateCards(numCards));
 
   const containerRef = useRef(null);
   const scrollIntervalRef = useRef(null);
@@ -48,14 +38,17 @@ const CardList = () => {
     const container = containerRef.current;
     if (!container) return;
 
+    const { scrollTop, scrollHeight, clientHeight } = container;
     const scrollThreshold = 20; // Pixels from the top/bottom to start scrolling
     const scrollSpeed = 10; // Pixels to scroll per frame
 
-    if (e.clientY - container.getBoundingClientRect().top < scrollThreshold) {
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+    if (clientY - container.getBoundingClientRect().top < scrollThreshold) {
       scrollIntervalRef.current = setInterval(() => {
         container.scrollTop = container.scrollTop - scrollSpeed;
       }, 100);
-    } else if (container.getBoundingClientRect().bottom - e.clientY < scrollThreshold) {
+    } else if (container.getBoundingClientRect().bottom - clientY < scrollThreshold) {
       scrollIntervalRef.current = setInterval(() => {
         container.scrollTop = container.scrollTop + scrollSpeed;
       }, 100);
@@ -81,13 +74,25 @@ const CardList = () => {
     const container = containerRef.current;
     if (!container) return;
 
+    const preventDefault = (e) => {
+      if (isDraggingRef.current) {
+        e.preventDefault();
+      }
+    };
+
     container.addEventListener('dragover', handleScroll);
+    container.addEventListener('touchmove', handleScroll, { passive: false });
+    container.addEventListener('touchmove', preventDefault, { passive: false });
     container.addEventListener('dragleave', clearScrollInterval);
+    container.addEventListener('touchend', clearScrollInterval);
     container.addEventListener('drop', clearScrollInterval);
 
     return () => {
       container.removeEventListener('dragover', handleScroll);
+      container.removeEventListener('touchmove', handleScroll);
+      container.removeEventListener('touchmove', preventDefault);
       container.removeEventListener('dragleave', clearScrollInterval);
+      container.removeEventListener('touchend', clearScrollInterval);
       container.removeEventListener('drop', clearScrollInterval);
     };
   }, []);
