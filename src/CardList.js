@@ -16,6 +16,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 
+// Function to generate a dynamic number of cards
 const generateCards = (numCards) => {
   return Array.from({ length: numCards }, (_, index) => ({
     id: index + 1,
@@ -34,12 +35,26 @@ const Card = ({ id, text }) => {
     backgroundColor: 'white',
     border: '1px solid #ccc',
     borderRadius: '4px',
-    cursor: 'grab',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {text}
+    <div ref={setNodeRef} style={style}>
+      <span>{text}</span>
+      <span
+        {...attributes}
+        {...listeners}
+        style={{
+          cursor: 'grab',
+          padding: '8px',
+          backgroundColor: '#ddd',
+          borderRadius: '4px',
+        }}
+      >
+        ==
+      </span>
     </div>
   );
 };
@@ -160,8 +175,8 @@ const CardList = ({ numCards = 10 }) => {
           overflowY: 'scroll',
           margin: '0 auto',
           border: '1px solid black',
-          WebkitOverflowScrolling: 'touch', // Ensures smooth scrolling on iOS
-          scrollbarWidth: 'thin', // For Firefox
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'thin', 
         }}
         className="scroll-container"
       >

@@ -9,10 +9,10 @@
 }
 
 .scroll-container::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.5); /* Adjust the color of the scrollbar thumb */
-  border-radius: 10px; /* Adjust the roundness of the scrollbar thumb */
+  background-color: rgba(0, 0, 0, 0.5); 
+  border-radius: 10px; 
 }
 
 .scroll-container::-webkit-scrollbar-track {
-  background-color: rgba(0, 0, 0, 0.1); /* Adjust the color of the scrollbar track */
+  background-color: rgba(0, 0, 0, 0.1);
 }
